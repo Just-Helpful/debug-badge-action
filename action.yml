@@ -1,0 +1,141 @@
+name: 'Dynamic Badge Generator'
+description: 'Generate dynamic badges using shields.io API with full customization support'
+author: 'Marco Aurelio'
+branding:
+  icon: 'award'
+  color: 'blue'
+
+inputs:
+  # Required inputs
+  label:
+    description: 'The left label text of the badge (e.g., "build", "version")'
+    required: true
+  status:
+    description: 'The right status text of the badge (e.g., "passing", "v1.0.0")'
+    required: true
+  path:
+    description: 'The file path where the badge will be saved (e.g., "badges/status.svg")'
+    required: true
+
+  # Style inputs
+  color:
+    description: 'Badge color. Can be hex (#4c1), named colors (green), or gradient (red,blue)'
+    required: false
+    default: 'blue'
+  label-color:
+    description: 'Label color. Can be hex (#4c1) or named color (gray)'
+    required: false
+    default: '555'
+  style:
+    description: 'Badge style: flat, flat-square, plastic, for-the-badge, or social'
+    required: false
+    default: 'flat-square'
+
+  # Logo inputs
+  logo:
+    description: 'Logo name from simple-icons.org (e.g., "github", "docker")'
+    required: false
+  logo-color:
+    description: 'Logo color. Can be hex, rgb, rgba, hsl, hsla, or CSS color name'
+    required: false
+
+  # Cache and link inputs
+  cache-seconds:
+    description: 'Cache duration in seconds for shields.io'
+    required: false
+  link:
+    description: 'URL to link the badge to when clicked'
+    required: false
+  max-age:
+    description: 'Maximum age of the badge in seconds'
+    required: false
+
+  # Commit options
+  commit-message:
+    description: 'Custom commit message for the badge update'
+    required: false
+    default: '🔄 Update ${{ inputs.label }} badge'
+
+outputs:
+  badge-path:
+    description: 'Path to the generated badge file'
+    value: ${{ steps.generate-badge.outputs.path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: curl
+        coverage: none
+        tools: none
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        composer install --no-dev --no-progress --no-interaction --optimize-autoloader
+        if [ $? -ne 0 ]; then
+          echo "::error::Failed to install dependencies"
+          exit 1
+        fi
+
+    - name: Create badge directory
+      shell: bash
+      run: |
+        # Extract directory from path
+        BADGE_DIR=$(dirname '${{ inputs.path }}')
+
+        # Create directory if it doesn't exist
+        if [ ! -d "$BADGE_DIR" ]; then
+          echo "Creating directory: $BADGE_DIR"
+          mkdir -p "$BADGE_DIR"
+        fi
+
+    - name: Generate badge
+      id: generate-badge
+      shell: bash
+      run: |
+        # Build command with all inputs
+        CMD=(
+          php bin/badge
+          '${{ inputs.label }}'
+          '${{ inputs.status }}'
+          '${{ inputs.path }}'
+          ${inputs.color:+--color '${{ inputs.color }}'}
+          ${inputs.label-color:+--label-color '${{ inputs.label-color }}'}
+          ${inputs.style:+--style '${{ inputs.style }}'}
+          ${inputs.logo:+--logo '${{ inputs.logo }}'}
+          ${inputs.logo-color:+--logo-color '${{ inputs.logo-color }}'}
+          ${inputs.cache-seconds:+--cache-seconds '${{ inputs.cache-seconds }}'}
+          ${inputs.link:+--link '${{ inputs.link }}'}
+          ${inputs.max-age:+--max-age '${{ inputs.max-age }}'}
+        )
+
+        # Run command and capture output
+        if ! output=$("${CMD[@]}" 2>&1); then
+          echo "::error::Failed to generate badge: $output"
+          exit 1
+        fi
+
+        # Verify file was created
+        if [ ! -f '${{ inputs.path }}' ]; then
+          echo "::error::Badge file was not created at ${{ inputs.path }}"
+          exit 1
+        fi
+
+        # Set output
+        echo "path=${{ inputs.path }}" >> $GITHUB_OUTPUT
+
+    - name: Commit badge
+      uses: EndBug/add-and-commit@v9
+      with:
+        add: ${{ inputs.path }}
+        message: ${{ inputs.commit-message }}
+        default_author: github_actions
+        commit: --no-verify
+        pull: "--rebase --autostash"
