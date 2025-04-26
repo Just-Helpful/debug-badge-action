@@ -1,0 +1,7 @@
+services:
+  php-fpm:
+    volumes:
+      - ./.warden/php/zz-config.ini:/etc/php.d/zz-config.ini
+  php-debug:
+    volumes:
+      - ./.warden/php/zz-config.ini:/etc/php.d/zz-config.ini
