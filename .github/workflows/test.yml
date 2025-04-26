@@ -1,0 +1,63 @@
+name: Test Badge Generator
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl
+          coverage: none
+          tools: none
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-interaction
+
+      - name: Test basic badge generation
+        run: |
+          php bin/badge "test" "passing" "test-badge.svg"
+          if [ ! -f "test-badge.svg" ]; then
+            echo "::error::Basic badge generation failed"
+            exit 1
+          fi
+
+      - name: Test badge with options
+        run: |
+          php bin/badge "test" "passing" "test-badge-with-options.svg" \
+            --color green \
+            --style flat-square \
+            --logo github \
+            --logo-color white
+          if [ ! -f "test-badge-with-options.svg" ]; then
+            echo "::error::Badge generation with options failed"
+            exit 1
+          fi
+
+      - name: Test invalid inputs
+        run: |
+          if php bin/badge "test" "passing" "test-badge.svg" --style invalid-style 2>&1 | grep -q "Invalid style"; then
+            echo "::info::Invalid style test passed"
+          else
+            echo "::error::Invalid style test failed"
+            exit 1
+          fi
+
+      - name: Upload test badges
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-badges
+          path: |
+            test-badge.svg
+            test-badge-with-options.svg
+          retention-days: 1
