@@ -1,0 +1,110 @@
+name: Generate badge
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: 'The left label of the badge, usually static.'
+        type: string
+        required: true
+      status:
+        description: 'The right status as the badge, usually based on results.'
+        type: string
+        required: true
+      color:
+        description: 'An array (comma-separated) with hex or named colors for the badge value background. More than one creates a gradient background.'
+        type: string
+        required: false
+        default: 'blue'
+      label-color:
+        description: 'Hex or named color for the label.'
+        type: string
+        required: false
+        default: '555'
+      style:
+        description: 'Badge style: flat, flat-square, plastic, for-the-badge, social.'
+        type: string
+        default: 'flat'
+        required: false
+      logo:
+        description: 'One of the named logos or simple-icons. See https://simpleicons.org/ for the list of available icons.'
+        type: string
+        required: false
+      logo-color:
+        description: 'The color of the logo (hex, rgb, rgba, hsl, hsla, and CSS named colors supported).'
+        type: string
+        required: false
+      path:
+        description: 'The file path to store the badge image file. Only output to `badge` action output if undefined.'
+        type: string
+        required: true
+
+jobs:
+  generate:
+    runs-on: self-hosted
+    steps:
+      - name: Fixing folder ownership of _work folder
+        run: sudo chown -R $(whoami) .
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate and modify inputs
+        id: input-check
+        run: |
+          # Normalize input strings by replacing spaces and special characters
+          modify_input() {
+            echo "$1" | sed 's/ /%20/g;s/_/__/g;s/-/--/g'
+          }
+
+          label=$(modify_input "${{ inputs.label }}")
+          status=$(modify_input "${{ inputs.status }}")
+          echo "label=$label" >> $GITHUB_OUTPUT
+          echo "status=$status" >> $GITHUB_OUTPUT
+
+      - name: Install curl if not present
+        run: |
+          if ! command -v curl &>/dev/null; then
+            echo "curl not found. Installing..."
+            sudo apt-get update
+            sudo apt-get install -y curl
+          fi
+
+      - name: Generate badge
+        id: create-badge
+        run: |
+          # Construct the badge URL
+          badge_url="https://img.shields.io/badge/${{ steps.input-check.outputs.label }}-${{ steps.input-check.outputs.status }}-${{ inputs.color }}?style=${{ inputs.style }}&labelColor=${{ inputs.label-color }}"
+
+          # Append optional parameters if provided
+          if [ -n "${{ inputs.logo }}" ]; then
+            badge_url="${badge_url}&logo=${{ inputs.logo }}"
+          fi
+
+          if [ -n "${{ inputs.logo-color }}" ]; then
+            badge_url="${badge_url}&logoColor=${{ inputs.logo-color }}"
+          fi
+          # check if the folder exists
+          if [ ! -d "$(dirname "${{ inputs.path }}")" ]; then
+            mkdir -p "$(dirname "${{ inputs.path }}")"
+          fi
+          # Download the badge
+          echo "Badge URL: $badge_url"
+          curl -sSL -o "${{ inputs.path }}" "$badge_url"
+
+          # Check if the file was created successfully
+          if [ ! -f "${{ inputs.path }}" ]; then
+            echo "Error: Badge file was not created at ${{ inputs.path }}."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Stage and commit badge
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: ${{ inputs.path }}
+          message: ":tada: Updated badge for ${{ inputs.label }}"
+          default_author: github_actions
+          commit: --no-verify
+          pull: "--rebase --autostash"
