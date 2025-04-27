@@ -66,6 +66,14 @@ runs:
   steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -141,12 +149,29 @@ runs:
         # Set output
         echo "path=${{ inputs.path }}" >> $GITHUB_OUTPUT
 
-    - name: Commit badge
-      uses: EndBug/add-and-commit@v9
-      with:
-        add: ${{ inputs.path }}
-        message: ${{ inputs.commit-message }}
-        default_author: github_actions
-        commit: --no-verify
-        pull: "--rebase --autostash"
-        github_token: ${{ github.token }}
+    - name: Commit and push changes
+      shell: bash
+      run: |
+        # Get current branch name
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        echo "Current branch: $CURRENT_BRANCH"
+
+        # Fetch latest changes from current branch
+        git fetch origin $CURRENT_BRANCH
+
+        # Check if there are changes to commit
+        if [[ -n "$(git status --porcelain)" ]]; then
+          # Add the badge file
+          git add "${{ inputs.path }}"
+
+          # Commit changes
+          git commit -m "${{ inputs.commit-message }}"
+
+          # Try to rebase on top of latest changes
+          git pull --rebase origin $CURRENT_BRANCH
+
+          # Push changes to the current branch
+          git push origin $CURRENT_BRANCH
+        else
+          echo "No changes to commit"
+        fi
