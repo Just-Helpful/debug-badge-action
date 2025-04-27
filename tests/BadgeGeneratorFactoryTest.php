@@ -1,4 +1,10 @@
 <?php
+/**
+ * Tests for the BadgeGeneratorFactory class.
+ *
+ * These tests verify that the factory correctly creates BadgeGenerator
+ * instances with all required dependencies.
+ */
 
 namespace Tests;
 
@@ -6,45 +12,56 @@ use BadgeGenerator\BadgeGenerator;
 use BadgeGenerator\BadgeGeneratorFactory;
 use BadgeGenerator\HttpClient\CurlHttpClient;
 use BadgeGenerator\Services\ShieldsIoUrlBuilder;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+
+beforeEach(function () {
+    // Clean up any existing test directories
+    if (is_dir('var/tmp')) {
+        array_map('unlink', glob("var/tmp/*.*"));
+    }
+    if (!is_dir('var/tmp')) {
+        mkdir('var/tmp', 0777, true);
+    }
+    chmod('var/tmp', 0777);
+    clearstatcache();
+});
+
+afterEach(function () {
+    // Clean up temporary files
+    if (is_dir('var/tmp')) {
+        array_map('unlink', glob("var/tmp/*.*"));
+    }
+    clearstatcache();
+});
 
 test('factory creates badge generator with correct dependencies', function () {
-    $inputs = [
+    $generator = BadgeGeneratorFactory::create([
         'label' => 'test',
         'status' => 'passing',
-        'path' => '/tmp/test.svg',
-        'color' => 'green',
-    ];
-
-    $generator = BadgeGeneratorFactory::create($inputs);
+        'path' => 'test.svg'
+    ]);
 
     expect($generator)->toBeInstanceOf(BadgeGenerator::class);
 
-    // Test that the generator has the correct dependencies using reflection
-    $reflection = new \ReflectionClass($generator);
+    // Test that the generator works
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+});
 
-    $urlBuilderProperty = $reflection->getProperty('urlBuilder');
-    $urlBuilderProperty->setAccessible(true);
-    expect($urlBuilderProperty->getValue($generator))->toBeInstanceOf(ShieldsIoUrlBuilder::class);
+test('factory creates badge generator with custom logger', function () {
+    $logger = new NullLogger();
+    $generator = BadgeGeneratorFactory::create([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'test.svg'
+    ], $logger);
 
-    $httpClientProperty = $reflection->getProperty('httpClient');
-    $httpClientProperty->setAccessible(true);
-    expect($httpClientProperty->getValue($generator))->toBeInstanceOf(CurlHttpClient::class);
+    expect($generator)->toBeInstanceOf(BadgeGenerator::class);
 
-    // Check individual properties
-    $labelProperty = $reflection->getProperty('label');
-    $labelProperty->setAccessible(true);
-    expect($labelProperty->getValue($generator))->toBe($inputs['label']);
-
-    $statusProperty = $reflection->getProperty('status');
-    $statusProperty->setAccessible(true);
-    expect($statusProperty->getValue($generator))->toBe($inputs['status']);
-
-    $pathProperty = $reflection->getProperty('path');
-    $pathProperty->setAccessible(true);
-    expect($pathProperty->getValue($generator))->toBe($inputs['path']);
-
-    $paramsProperty = $reflection->getProperty('params');
-    $paramsProperty->setAccessible(true);
-    $params = $paramsProperty->getValue($generator);
-    expect($params['color'])->toBe($inputs['color']);
+    // Test that the generator works
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
 });

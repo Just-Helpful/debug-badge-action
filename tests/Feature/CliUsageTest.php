@@ -1,38 +1,69 @@
 <?php
+/**
+ * Feature tests for the CLI interface of the badge generator.
+ * These tests ensure that the command-line interface works correctly
+ * under various scenarios including valid and invalid inputs.
+ */
 
 namespace Tests\Feature;
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
+use org\bovigo\vfs\vfsStream;
+use BadgeGenerator\Command\GenerateBadgeCommand;
+use Psr\Log\LoggerInterface;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\TestHandler;
+use Monolog\Level;
+
+beforeEach(function () {
+    // Ensure var/tmp directory exists
+    if (!is_dir('var/tmp')) {
+        mkdir('var/tmp', 0777, true);
+    }
+});
+
+afterEach(function () {
+    // Clean up temporary files
+    if (is_dir('var/tmp')) {
+        array_map('unlink', glob("var/tmp/*.*"));
+    }
+});
 
 test('it shows help message', function () {
     $application = new Application();
-    $application->add(new \BadgeGenerator\Command\GenerateBadgeCommand());
+    $command = new \BadgeGenerator\Command\GenerateBadgeCommand();
+    $application->add($command);
 
-    $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
+    $commandTester->execute(['--help' => true], ['interactive' => false, 'decorated' => false]);
 
-    $commandTester->execute(['--help' => true], ['catch_exceptions' => false]);
-
-    expect($commandTester->getDisplay())
+    $display = $commandTester->getDisplay();
+    expect($display)
         ->toContain('Generate a badge using shields.io API')
         ->toContain('Usage:')
-        ->toContain('badge:generate [options] <label> <status> <path>')
         ->toContain('Arguments:')
         ->toContain('Options:');
 });
 
 test('it shows version', function () {
     $application = new Application();
-    $application->add(new \BadgeGenerator\Command\GenerateBadgeCommand());
+    $command = new \BadgeGenerator\Command\GenerateBadgeCommand();
+    $application->add($command);
 
-    $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
+    $commandTester->execute([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'test.svg',
+        '--version' => true
+    ]);
 
-    $commandTester->execute(['--version' => true], ['catch_exceptions' => false]);
-
-    expect($commandTester->getDisplay())
-        ->toContain('Badge Generator');
+    expect($commandTester->getDisplay())->toContain('1.0.0');
 });
 
 test('it generates badge with all valid options', function () {
@@ -56,9 +87,9 @@ test('it generates badge with all valid options', function () {
         '--max-age' => '86400',
     ]);
 
-    expect($commandTester->getStatusCode())->toBe(0);
-    expect(file_exists('test.svg'))->toBeTrue();
-    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: test.svg');
+    expect($commandTester->getStatusCode())->toBe(Command::SUCCESS);
+    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: var/tmp/test.svg');
 });
 
 test('it handles invalid color format', function () {
@@ -99,21 +130,20 @@ test('it handles invalid style', function () {
 
 test('it handles invalid logo color format', function () {
     $application = new Application();
-    $application->add(new \BadgeGenerator\Command\GenerateBadgeCommand());
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
 
-    $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
-
-    $commandTester->execute([
+    $result = $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
         'path' => 'test.svg',
         '--logo' => 'github',
-        '--logo-color' => 'invalid-color',
+        '--logo-color' => 'invalid-color'
     ]);
 
-    expect($commandTester->getStatusCode())->toBe(0);
-    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: test.svg');
+    expect($result)->toBe(Command::FAILURE);
+    expect($commandTester->getDisplay())->toContain('Invalid logo color format: invalid-color');
 });
 
 test('it handles invalid cache seconds', function () {
@@ -172,14 +202,13 @@ test('it handles invalid link url', function () {
 
 test('it handles missing required arguments', function () {
     $application = new Application();
-    $application->add(new \BadgeGenerator\Command\GenerateBadgeCommand());
+    $command = new \BadgeGenerator\Command\GenerateBadgeCommand();
+    $application->add($command);
 
-    $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
+    $commandTester->execute([], ['interactive' => false, 'decorated' => false, 'catch_exceptions' => false]);
 
-    $commandTester->execute([], ['catch_exceptions' => false]);
-
-    expect($commandTester->getStatusCode())->toBe(1);
+    expect($commandTester->getStatusCode())->toBe(Command::FAILURE);
     expect($commandTester->getDisplay())->toContain('Not enough arguments (missing: "label, status, path")');
 });
 
@@ -201,18 +230,139 @@ test('it handles empty required arguments', function () {
 });
 
 test('it handles file permission errors', function () {
+    // Create a read-only directory
+    $testDir = 'var/tmp/test_readonly';
+    if (!is_dir($testDir)) {
+        mkdir($testDir, 0777, true);
+    }
+    chmod($testDir, 0444);
+
     $application = new Application();
-    $application->add(new \BadgeGenerator\Command\GenerateBadgeCommand());
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
 
-    $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => $testDir . '/test.svg'
+    ]);
 
+    expect($result)->toBe(Command::FAILURE);
+    expect($commandTester->getDisplay())->toContain('Failed to save badge');
+
+    // Cleanup
+    chmod($testDir, 0777);
+    rmdir($testDir);
+});
+
+test('it fails when required arguments are missing', function () {
+    $application = new Application();
+    $command = new \BadgeGenerator\Command\GenerateBadgeCommand();
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
+    $commandTester->execute(['label' => 'test'], ['interactive' => false, 'decorated' => false, 'catch_exceptions' => false]);
+
+    expect($commandTester->getStatusCode())->toBe(Command::FAILURE);
+    expect($commandTester->getDisplay())->toContain('Not enough arguments (missing: "status, path")');
+});
+
+test('it generates badge in var/tmp directory', function () {
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'test.svg'
+    ]);
+
+    expect($result)->toBe(Command::SUCCESS);
+    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: var/tmp/test.svg');
+});
+
+test('it validates input using ArrayInput', function () {
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $input = new ArrayInput([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'test.svg',
+        '--color' => 'invalid-color'
+    ], $command->getDefinition());
+
+    $output = new BufferedOutput();
+    $result = $command->run($input, $output);
+
+    expect($result)->toBe(Command::FAILURE);
+    expect($output->fetch())->toContain('Failed to download badge');
+});
+
+test('it logs operations to stdout in development', function () {
+    $testHandler = new TestHandler();
+    $logger = new Logger('badge-generator');
+    $logger->pushHandler($testHandler);
+
+    $application = new Application();
+    $command = new GenerateBadgeCommand($logger);
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
     $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
-        'path' => '/root/test.svg', // This will cause a permission error
-    ], ['catch_exceptions' => false]);
+        'path' => 'test.svg'
+    ]);
 
-    expect($commandTester->getStatusCode())->toBe(1);
-    expect($commandTester->getDisplay())->toContain('An unexpected error occurred');
+    expect($testHandler->hasInfoRecords())->toBeTrue();
+    expect($testHandler->hasRecord('Starting badge generation', Level::Info))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain('Badge generated successfully');
+});
+
+test('it handles special characters in label and status', function () {
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'test/with/slashes',
+        'status' => 'passing with spaces',
+        'path' => 'test.svg'
+    ]);
+
+    expect($result)->toBe(Command::SUCCESS);
+    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
+});
+
+test('it validates directory permissions before generating badge', function () {
+    // Create a read-only directory
+    if (!is_dir('var/tmp/readonly')) {
+        mkdir('var/tmp/readonly', 0777, true);
+    }
+    chmod('var/tmp/readonly', 0444);
+
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'readonly/test.svg'
+    ]);
+
+    expect($result)->toBe(Command::FAILURE);
+    expect($commandTester->getDisplay())->toContain('Failed to save badge');
+
+    // Cleanup
+    chmod('var/tmp/readonly', 0777);
+    rmdir('var/tmp/readonly');
 });

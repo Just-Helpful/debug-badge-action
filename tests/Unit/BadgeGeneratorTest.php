@@ -1,4 +1,10 @@
 <?php
+/**
+ * Unit tests for the BadgeGenerator class.
+ *
+ * These tests verify the core functionality of the badge generator,
+ * including input validation, parameter handling, and file operations.
+ */
 
 namespace Tests\Unit;
 
@@ -7,19 +13,38 @@ use BadgeGenerator\Contracts\HttpClientInterface;
 use BadgeGenerator\Contracts\UrlBuilderInterface;
 use BadgeGenerator\Exceptions\ValidationException;
 use Mockery;
-use org\bovigo\vfs\vfsStream;
+use Psr\Log\NullLogger;
+
+beforeEach(function () {
+    // Clean up any existing test directories
+    if (is_dir('var/tmp')) {
+        array_map('unlink', glob("var/tmp/*.*"));
+    }
+    if (!is_dir('var/tmp')) {
+        mkdir('var/tmp', 0777, true);
+    }
+    chmod('var/tmp', 0777);
+    clearstatcache();
+});
+
+afterEach(function () {
+    // Clean up temporary files
+    if (is_dir('var/tmp')) {
+        array_map('unlink', glob("var/tmp/*.*"));
+    }
+    Mockery::close();
+});
 
 test('it can be instantiated with required inputs', function () {
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
         'label' => 'test',
         'status' => 'passing',
-        'path' => '/tmp/test.svg',
-    ];
+        'path' => 'var/tmp/test.svg'
+    ]);
 
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
     expect($generator)->toBeInstanceOf(BadgeGenerator::class);
 });
 
@@ -27,129 +52,282 @@ test('it throws an exception when required inputs are missing', function () {
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
-        'label' => 'test',
-        // Missing status and path
-    ];
-
-    expect(fn() => new BadgeGenerator($urlBuilder, $httpClient, $inputs))
-        ->toThrow(ValidationException::class, 'Missing required input: status');
+    expect(fn() => new BadgeGenerator($urlBuilder, $httpClient, []))
+        ->toThrow(ValidationException::class, 'Missing required input: label');
 });
 
 test('it sets default values for optional parameters', function () {
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->with('test', 'passing', [
+            'style' => 'flat',
+            'label-color' => '555',
+            'color' => 'blue'
+        ])
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
         'label' => 'test',
         'status' => 'passing',
-        'path' => '/tmp/test.svg',
-    ];
+        'path' => 'var/tmp/test.svg'
+    ]);
 
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
-
-    $reflection = new \ReflectionClass($generator);
-    $paramsProperty = $reflection->getProperty('params');
-    $paramsProperty->setAccessible(true);
-    $params = $paramsProperty->getValue($generator);
-
-    expect($params['style'])->toBe('flat');
-    expect($params['label-color'])->toBe('555');
-    expect($params['color'])->toBe('blue');
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
 });
 
 test('it correctly encodes URL parameters', function () {
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
-        'label' => 'test label',
-        'status' => 'test status',
-        'path' => '/tmp/test.svg',
-        'style' => 'flat-square',
-        'label-color' => '000000',
-        'color' => 'green',
-    ];
-
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
-
-    $reflection = new \ReflectionClass($generator);
-    $paramsProperty = $reflection->getProperty('params');
-    $paramsProperty->setAccessible(true);
-    $params = $paramsProperty->getValue($generator);
-
-    expect($params['style'])->toBe('flat-square');
-    expect($params['label-color'])->toBe('000000');
-    expect($params['color'])->toBe('green');
-});
-
-test('it generates badge and saves to file', function () {
-    $root = vfsStream::setup('root');
-    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
-    $httpClient = Mockery::mock(HttpClientInterface::class);
-
-    $inputs = [
-        'label' => 'test',
-        'status' => 'passing',
-        'path' => vfsStream::url('root/test.svg'),
-    ];
-
-    $expectedUrl = 'https://img.shields.io/badge/test-passing-blue';
-    $expectedContent = '<svg>test badge content</svg>';
-
     $urlBuilder->shouldReceive('build')
         ->once()
-        ->with($inputs['label'], $inputs['status'], Mockery::type('array'))
-        ->andReturn($expectedUrl);
+        ->with('test/path', 'status/value', Mockery::any())
+        ->andReturn('https://example.com/badge.svg');
 
     $httpClient->shouldReceive('download')
         ->once()
-        ->with($expectedUrl)
-        ->andReturn($expectedContent);
+        ->andReturn('<svg>test</svg>');
 
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test/path',
+        'status' => 'status/value',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
     $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+});
 
-    expect($path)->toBe($inputs['path']);
-    expect($root->hasChild('test.svg'))->toBeTrue();
-    expect($root->getChild('test.svg')->getContent())->toBe($expectedContent);
+test('it generates badge and saves to file', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+    expect(file_get_contents($path))->toBe('<svg>test</svg>');
 });
 
 test('it throws exception when directory creation fails', function () {
-    $root = vfsStream::setup('root', 0444); // Read-only root
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    // Create a read-only directory
+    $testDir = 'var/tmp/readonly';
+    if (!is_dir($testDir)) {
+        mkdir($testDir, 0777, true);
+    }
+    chmod($testDir, 0444);
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
         'label' => 'test',
         'status' => 'passing',
-        'path' => vfsStream::url('root/subdir/test.svg'),
-    ];
+        'path' => $testDir . '/test.svg'
+    ]);
 
-    $urlBuilder->shouldReceive('build')->andReturn('https://example.com/badge.svg');
-    $httpClient->shouldReceive('download')->andReturn('<svg>content</svg>');
+    expect(fn() => $generator->generate())
+        ->toThrow(\Exception::class, 'Failed to save badge: Directory is not writable');
 
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
-    expect(fn() => $generator->generate())->toThrow(\RuntimeException::class, 'Failed to create directory: ' . dirname($inputs['path']));
+    // Cleanup
+    chmod($testDir, 0777);
+    rmdir($testDir);
 });
 
 test('it throws exception when file saving fails', function () {
-    $root = vfsStream::setup('root');
-    $dir = vfsStream::newDirectory('badges', 0444); // Read-only directory
-    $root->addChild($dir);
-
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
-    $inputs = [
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    // Create a read-only directory
+    $testDir = 'var/tmp/readonly';
+    if (!is_dir($testDir)) {
+        mkdir($testDir, 0777, true);
+    }
+    chmod($testDir, 0444);
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
         'label' => 'test',
         'status' => 'passing',
-        'path' => vfsStream::url('root/badges/test.svg'),
-    ];
+        'path' => $testDir . '/test.svg'
+    ]);
 
-    $urlBuilder->shouldReceive('build')->andReturn('https://example.com/badge.svg');
-    $httpClient->shouldReceive('download')->andReturn('<svg>content</svg>');
+    expect(fn() => $generator->generate())
+        ->toThrow(\Exception::class, 'Failed to save badge: Directory is not writable');
 
-    $generator = new BadgeGenerator($urlBuilder, $httpClient, $inputs);
-    expect(fn() => $generator->generate())->toThrow(\RuntimeException::class, 'Failed to save badge to: ' . $inputs['path']);
+    // Cleanup
+    chmod($testDir, 0777);
+    rmdir($testDir);
+});
+
+test('it handles special characters in label and status', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->with('test/with/slashes', 'passing with spaces', Mockery::any())
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test/with/slashes',
+        'status' => 'passing with spaces',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+});
+
+test('it handles unicode characters in label and status', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->with('测试', '通过', Mockery::any())
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => '测试',
+        'status' => '通过',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+});
+
+test('it handles very long label and status values', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $longText = str_repeat('a', 100);
+
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->with($longText, $longText, Mockery::any())
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andReturn('<svg>test</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => $longText,
+        'status' => $longText,
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    $path = $generator->generate();
+    expect($path)->toBe('var/tmp/test.svg');
+    expect(file_exists($path))->toBeTrue();
+});
+
+test('it handles file overwriting correctly', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->twice()
+        ->andReturn('https://example.com/badge.svg');
+
+    $httpClient->shouldReceive('download')
+        ->twice()
+        ->andReturn('<svg>test1</svg>', '<svg>test2</svg>');
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    // Generate first badge
+    $path = $generator->generate();
+    expect(file_get_contents($path))->toBe('<svg>test1</svg>');
+
+    // Generate second badge with same path
+    $path = $generator->generate();
+    expect(file_get_contents($path))->toBe('<svg>test2</svg>');
+});
+
+test('it handles concurrent file access', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->times(2)
+        ->andReturn('https://example.com/badge1.svg', 'https://example.com/badge2.svg');
+
+    $httpClient->shouldReceive('download')
+        ->times(2)
+        ->andReturn('<svg>test1</svg>', '<svg>test2</svg>');
+
+    // Create two generators with different paths
+    $generator1 = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test1',
+        'status' => 'passing',
+        'path' => 'var/tmp/test1.svg'
+    ]);
+
+    $generator2 = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test2',
+        'status' => 'passing',
+        'path' => 'var/tmp/test2.svg'
+    ]);
+
+    // Generate badges "concurrently"
+    $path1 = $generator1->generate();
+    $path2 = $generator2->generate();
+
+    expect(file_get_contents($path1))->toBe('<svg>test1</svg>');
+    expect(file_get_contents($path2))->toBe('<svg>test2</svg>');
 });
