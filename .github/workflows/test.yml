@@ -47,11 +47,11 @@ jobs:
                 $totalElements += (int)$metric["elements"];
                 $coveredElements += (int)$metric["coveredelements"];
               }
-              echo number_format(($coveredElements / $totalElements) * 100, 1) . "%";
+              echo number_format(($coveredElements / $totalElements) * 100, 1);
             ')
             echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
           else
-            echo "coverage=0%" >> $GITHUB_OUTPUT
+            echo "coverage=0" >> $GITHUB_OUTPUT
             echo "::warning::No coverage report found"
           fi
 
@@ -115,7 +115,7 @@ jobs:
             --logo github
 
           # Generate coverage badge
-          php bin/badge "coverage" "${{ steps.coverage.outputs.coverage }}" "badges/coverage.svg" \
+          php bin/badge "coverage" "${{ steps.coverage.outputs.coverage }}%" "badges/coverage.svg" \
             --color brightgreen \
             --style flat-square \
             --logo codecov
