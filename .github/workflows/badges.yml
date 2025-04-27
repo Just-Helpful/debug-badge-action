@@ -9,25 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        badge:
-          - name: build
-            label: build
+        include:
+          - label: build
             status: passing
+            file: build.svg
             color: green
             logo: github
-          - name: version
-            label: version
+          - label: version
             status: ${{ github.ref_name }}
+            file: version.svg
             color: blue
             logo: github
-          - name: license
-            label: license
+          - label: license
             status: MIT
+            file: license.svg
             color: green
             logo: github
-          - name: coverage
-            label: coverage
+          - label: coverage
             status: 95%
+            file: coverage.svg
             color: brightgreen
             logo: codecov
     steps:
@@ -35,18 +35,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create badges directory
-        run: |
-          mkdir -p badges
-          echo "Created badges directory"
+        run: mkdir -p badges
 
-      - name: Generate ${{ matrix.badge.name }} Badge
+      - name: Generate ${{ matrix.label }} Badge
         uses: ./
         with:
-          label: ${{ matrix.badge.label }}
-          status: ${{ matrix.badge.status }}
-          path: badges/${{ matrix.badge.name }}.svg
-          color: ${{ matrix.badge.color }}
+          label: ${{ matrix.label }}
+          status: ${{ matrix.status }}
+          path: badges/${{ matrix.file }}
+          color: ${{ matrix.color }}
           style: flat-square
-          logo: ${{ matrix.badge.logo }}
+          logo: ${{ matrix.logo }}
           logo-color: white
-          commit-message: 🔄 Update ${{ matrix.badge.name }} badge
+          commit-message: 🔄 Update ${{ matrix.label }} badge
