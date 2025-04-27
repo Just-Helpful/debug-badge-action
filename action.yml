@@ -164,3 +164,4 @@ runs:
         default_author: github_actions
         commit: --no-verify
         pull: "--rebase --autostash"
+        github_token: ${{ github.token }}
