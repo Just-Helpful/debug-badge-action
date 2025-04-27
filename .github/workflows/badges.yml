@@ -2,13 +2,13 @@ name: Generate Badges
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
       badge_type:
-        description: 'Type of badge to generate'
+        description: "Type of badge to generate"
         required: true
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - all
@@ -20,6 +20,29 @@ on:
 jobs:
   generate-badges:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        badge:
+          - name: build
+            label: build
+            status: passing
+            color: green
+            logo: github
+          - name: version
+            label: version
+            status: ${{ github.ref_name }}
+            color: blue
+            logo: github
+          - name: license
+            label: license
+            status: MIT
+            color: green
+            logo: github
+          - name: coverage
+            label: coverage
+            status: 95%
+            color: brightgreen
+            logo: codecov
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,61 +52,15 @@ jobs:
           mkdir -p badges
           echo "Created badges directory"
 
-      - name: Generate Build Badge
-        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == 'build' }}
+      - name: Generate ${{ matrix.badge.name }} Badge
+        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == matrix.badge.name }}
         uses: ./
         with:
-          label: 'build'
-          status: 'passing'
-          path: 'badges/build.svg'
-          color: 'green'
-          style: 'flat-square'
-          logo: 'github'
-          logo-color: 'white'
-          commit-message: '🔄 Update build status badge'
-
-      - name: Generate Version Badge
-        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == 'version' }}
-        uses: ./
-        with:
-          label: 'version'
-          status: ${{ github.ref_name }}
-          path: 'badges/version.svg'
-          color: 'blue'
-          style: 'flat-square'
-          logo: 'github'
-          logo-color: 'white'
-          commit-message: '🔄 Update version badge'
-
-      - name: Generate License Badge
-        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == 'license' }}
-        uses: ./
-        with:
-          label: 'license'
-          status: 'MIT'
-          path: 'badges/license.svg'
-          color: 'green'
-          style: 'flat-square'
-          logo: 'github'
-          logo-color: 'white'
-          commit-message: '🔄 Update license badge'
-
-      - name: Generate Coverage Badge
-        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == 'coverage' }}
-        uses: ./
-        with:
-          label: 'coverage'
-          status: '95%'
-          path: 'badges/coverage.svg'
-          color: 'brightgreen'
-          style: 'flat-square'
-          logo: 'codecov'
-          logo-color: 'white'
-          commit-message: '🔄 Update coverage badge'
-
-      - name: Upload Badges
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-badges
-          path: badges/*.svg
-          retention-days: 7
+          label: ${{ matrix.badge.label }}
+          status: ${{ matrix.badge.status }}
+          path: badges/${{ matrix.badge.name }}.svg
+          color: ${{ matrix.badge.color }}
+          style: flat-square
+          logo: ${{ matrix.badge.logo }}
+          logo-color: white
+          commit-message: 🔄 Update ${{ matrix.badge.name }} badge
