@@ -88,7 +88,7 @@ runs:
       shell: bash
       run: |
         # Extract directory from path
-        BADGE_DIR=$(dirname "${{ github.action_path }}/${{ inputs.path }}")
+        BADGE_DIR=$(dirname "${{ inputs.path }}")
 
         # Create directory if it doesn't exist
         if [ ! -d "$BADGE_DIR" ]; then
@@ -100,46 +100,31 @@ runs:
       id: generate-badge
       shell: bash
       run: |
-        # Build command with all inputs
+        # Escape special characters in inputs
+        LABEL="${{ inputs.label }}"
+        STATUS="${{ inputs.status }}"
+        LABEL=$(echo "$LABEL" | sed 's/[^a-zA-Z0-9-]/_/g')
+        STATUS=$(echo "$STATUS" | sed 's/%/%25/g' | sed 's/ /%20/g' | sed 's/[^a-zA-Z0-9%.-]/_/g')
+
+        # Build base command
         CMD=(
           php bin/badge
-          "${{ inputs.label }}"
-          "${{ inputs.status }}"
+          "$LABEL"
+          "$STATUS"
           "${{ inputs.path }}"
         )
 
-        # Add optional parameters if set
-        if [ ! -z "${{ inputs.color }}" ]; then
-          CMD+=(--color "${{ inputs.color }}")
-        fi
+        # Add optional parameters only if they are non-empty
+        [[ -n "${{ inputs.color }}" ]] && CMD+=(--color "${{ inputs.color }}")
+        [[ -n "${{ inputs.label-color }}" ]] && CMD+=(--label-color "${{ inputs.label-color }}")
+        [[ -n "${{ inputs.style }}" ]] && CMD+=(--style "${{ inputs.style }}")
+        [[ -n "${{ inputs.logo }}" ]] && CMD+=(--logo "${{ inputs.logo }}")
+        [[ -n "${{ inputs.logo-color }}" ]] && CMD+=(--logo-color "${{ inputs.logo-color }}")
+        [[ -n "${{ inputs.cache-seconds }}" ]] && CMD+=(--cache-seconds "${{ inputs.cache-seconds }}")
+        [[ -n "${{ inputs.link }}" ]] && CMD+=(--link "${{ inputs.link }}")
+        [[ -n "${{ inputs.max-age }}" ]] && CMD+=(--max-age "${{ inputs.max-age }}")
 
-        if [ ! -z "${{ inputs.label-color }}" ]; then
-          CMD+=(--label-color "${{ inputs.label-color }}")
-        fi
-
-        if [ ! -z "${{ inputs.style }}" ]; then
-          CMD+=(--style "${{ inputs.style }}")
-        fi
-
-        if [ ! -z "${{ inputs.logo }}" ]; then
-          CMD+=(--logo "${{ inputs.logo }}")
-        fi
-
-        if [ ! -z "${{ inputs.logo-color }}" ]; then
-          CMD+=(--logo-color "${{ inputs.logo-color }}")
-        fi
-
-        if [ ! -z "${{ inputs.cache-seconds }}" ]; then
-          CMD+=(--cache-seconds "${{ inputs.cache-seconds }}")
-        fi
-
-        if [ ! -z "${{ inputs.link }}" ]; then
-          CMD+=(--link "${{ inputs.link }}")
-        fi
-
-        if [ ! -z "${{ inputs.max-age }}" ]; then
-          CMD+=(--max-age "${{ inputs.max-age }}")
-        fi
+        echo "Executing command: ${CMD[*]}"
 
         # Run command and capture output
         if ! output=$("${CMD[@]}" 2>&1); then
