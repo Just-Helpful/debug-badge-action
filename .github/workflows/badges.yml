@@ -3,19 +3,6 @@ name: Generate Badges
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      badge_type:
-        description: "Type of badge to generate"
-        required: true
-        default: "all"
-        type: choice
-        options:
-          - all
-          - build
-          - version
-          - coverage
-          - license
 
 jobs:
   generate-badges:
