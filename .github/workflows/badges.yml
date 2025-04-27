@@ -53,7 +53,6 @@ jobs:
           echo "Created badges directory"
 
       - name: Generate ${{ matrix.badge.name }} Badge
-        if: ${{ github.event.inputs.badge_type == 'all' || github.event.inputs.badge_type == matrix.badge.name }}
         uses: ./
         with:
           label: ${{ matrix.badge.label }}
