@@ -24,7 +24,7 @@ test('it handles spaces in label and status', function () {
     $builder = new ShieldsIoUrlBuilder();
     $url = $builder->build('build status', 'all passing', ['color' => 'green']);
 
-    expect($url)->toBe('https://img.shields.io/badge/build status-all passing-green');
+    expect($url)->toBe('https://img.shields.io/badge/build%20status-all%20passing-green');
 });
 
 test('it handles percentage signs correctly', function () {
@@ -38,7 +38,7 @@ test('it handles multiple special characters', function () {
     $builder = new ShieldsIoUrlBuilder();
     $url = $builder->build('complex test', '75% & passing!', ['color' => 'blue']);
 
-    expect($url)->toBe('https://img.shields.io/badge/complex test-75%25 %26 passing%21-blue');
+    expect($url)->toBe('https://img.shields.io/badge/complex%20test-75%25%20%26%20passing%21-blue');
 });
 
 test('it handles underscores and dashes', function () {

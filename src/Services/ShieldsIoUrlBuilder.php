@@ -50,14 +50,20 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
      */
     private function encodeParameter(string $str): string
     {
-        // First, URL encode the entire string
-        $encoded = urlencode($str);
+        // First, handle special characters that need custom encoding
+        $str = str_replace(
+            ['%', '_', '-'],
+            ['%25', '__', '--'],
+            $str
+        );
 
-        // Replace specific characters according to shields.io rules
-        return str_replace(
-            ['%20', '%', '_', '-', '.'],
-            [' ', '%25', '__', '--', '.'],
-            $encoded
+        // Then URL encode the string, preserving already encoded sequences
+        return preg_replace_callback(
+            '/[^A-Za-z0-9\-._~%]/',
+            function ($match) {
+                return rawurlencode($match[0]);
+            },
+            $str
         );
     }
 
@@ -78,10 +84,12 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
         ];
 
         foreach ($params as $key => $value) {
-            if ($key !== 'color' && $value !== null) {
-                $paramName = $paramMap[$key] ?? $key;
-                $queryParams[] = urlencode($paramName) . '=' . urlencode($value);
+            // Skip color parameter and empty/null values
+            if ($key === 'color' || $value === null || $value === '') {
+                continue;
             }
+            $paramName = $paramMap[$key] ?? $key;
+            $queryParams[] = urlencode($paramName) . '=' . urlencode($value);
         }
 
         return $queryParams;
