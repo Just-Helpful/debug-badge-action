@@ -54,7 +54,7 @@ inputs:
   commit-message:
     description: 'Custom commit message for the badge update'
     required: false
-    default: '🔄 Update ${{ inputs.label }} badge'
+    default: '🔄 Update badge'
 
 outputs:
   badge-path:
@@ -88,7 +88,7 @@ runs:
       shell: bash
       run: |
         # Extract directory from path
-        BADGE_DIR=$(dirname '${{ inputs.path }}')
+        BADGE_DIR=$(dirname "${{ github.action_path }}/${{ inputs.path }}")
 
         # Create directory if it doesn't exist
         if [ ! -d "$BADGE_DIR" ]; then
@@ -103,18 +103,43 @@ runs:
         # Build command with all inputs
         CMD=(
           php bin/badge
-          '${{ inputs.label }}'
-          '${{ inputs.status }}'
-          '${{ inputs.path }}'
-          ${inputs.color:+--color '${{ inputs.color }}'}
-          ${inputs.label-color:+--label-color '${{ inputs.label-color }}'}
-          ${inputs.style:+--style '${{ inputs.style }}'}
-          ${inputs.logo:+--logo '${{ inputs.logo }}'}
-          ${inputs.logo-color:+--logo-color '${{ inputs.logo-color }}'}
-          ${inputs.cache-seconds:+--cache-seconds '${{ inputs.cache-seconds }}'}
-          ${inputs.link:+--link '${{ inputs.link }}'}
-          ${inputs.max-age:+--max-age '${{ inputs.max-age }}'}
+          "${{ inputs.label }}"
+          "${{ inputs.status }}"
+          "${{ inputs.path }}"
         )
+
+        # Add optional parameters if set
+        if [ ! -z "${{ inputs.color }}" ]; then
+          CMD+=(--color "${{ inputs.color }}")
+        fi
+
+        if [ ! -z "${{ inputs.label-color }}" ]; then
+          CMD+=(--label-color "${{ inputs.label-color }}")
+        fi
+
+        if [ ! -z "${{ inputs.style }}" ]; then
+          CMD+=(--style "${{ inputs.style }}")
+        fi
+
+        if [ ! -z "${{ inputs.logo }}" ]; then
+          CMD+=(--logo "${{ inputs.logo }}")
+        fi
+
+        if [ ! -z "${{ inputs.logo-color }}" ]; then
+          CMD+=(--logo-color "${{ inputs.logo-color }}")
+        fi
+
+        if [ ! -z "${{ inputs.cache-seconds }}" ]; then
+          CMD+=(--cache-seconds "${{ inputs.cache-seconds }}")
+        fi
+
+        if [ ! -z "${{ inputs.link }}" ]; then
+          CMD+=(--link "${{ inputs.link }}")
+        fi
+
+        if [ ! -z "${{ inputs.max-age }}" ]; then
+          CMD+=(--max-age "${{ inputs.max-age }}")
+        fi
 
         # Run command and capture output
         if ! output=$("${CMD[@]}" 2>&1); then
@@ -123,7 +148,7 @@ runs:
         fi
 
         # Verify file was created
-        if [ ! -f '${{ inputs.path }}' ]; then
+        if [ ! -f "${{ inputs.path }}" ]; then
           echo "::error::Badge file was not created at ${{ inputs.path }}"
           exit 1
         fi
