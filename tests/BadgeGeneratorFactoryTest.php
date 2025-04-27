@@ -1,9 +1,12 @@
 <?php
+
 /**
- * Tests for the BadgeGeneratorFactory class.
+ * Copyright (c) 2025 Marcos Aurelio
  *
- * These tests verify that the factory correctly creates BadgeGenerator
- * instances with all required dependencies.
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @see https://github.com/macoaure/badge-action
  */
 
 namespace Tests;

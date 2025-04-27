@@ -1,10 +1,12 @@
 <?php
+
 /**
- * Badge Generator Service
+ * Copyright (c) 2025 Marcos Aurelio
  *
- * This class is responsible for generating badges using the shields.io API.
- * It handles the badge generation process including URL building, downloading
- * the badge SVG, and saving it to the filesystem.
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @see https://github.com/macoaure/badge-action
  */
 
 namespace BadgeGenerator;

@@ -1,9 +1,12 @@
 <?php
+
 /**
- * Tests for the GenerateBadgeCommand class.
+ * Copyright (c) 2025 Marcos Aurelio
  *
- * These tests verify that the command-line interface works correctly,
- * including input validation, error handling, and successful badge generation.
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @see https://github.com/macoaure/badge-action
  */
 
 namespace Tests\Feature;

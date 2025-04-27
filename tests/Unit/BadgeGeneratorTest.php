@@ -1,9 +1,12 @@
 <?php
+
 /**
- * Unit tests for the BadgeGenerator class.
+ * Copyright (c) 2025 Marcos Aurelio
  *
- * These tests verify the core functionality of the badge generator,
- * including input validation, parameter handling, and file operations.
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @see https://github.com/macoaure/badge-action
  */
 
 namespace Tests\Unit;

@@ -1,8 +1,12 @@
 <?php
+
 /**
- * Feature tests for the CLI interface of the badge generator.
- * These tests ensure that the command-line interface works correctly
- * under various scenarios including valid and invalid inputs.
+ * Copyright (c) 2025 Marcos Aurelio
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ *
+ * @see https://github.com/macoaure/badge-action
  */
 
 namespace Tests\Feature;
