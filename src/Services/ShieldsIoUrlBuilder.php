@@ -17,10 +17,18 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
 {
     private string $baseUrl = 'https://img.shields.io/badge';
 
+    /**
+     * Build a shields.io URL with the given parameters.
+     *
+     * @param string $label The badge label
+     * @param string $status The badge status/value
+     * @param array $params Additional parameters
+     * @return string The complete URL
+     */
     public function build(string $label, string $status, array $params): string
     {
-        $encodedLabel = $this->urlEncode($label);
-        $encodedStatus = $this->urlEncode($status);
+        $encodedLabel = $this->encodeParameter($label);
+        $encodedStatus = $this->encodeParameter($status);
         $color = $params['color'] ?? 'blue';
 
         $url = "{$this->baseUrl}/{$encodedLabel}-{$encodedStatus}-{$color}";
@@ -33,15 +41,32 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
         return $url;
     }
 
-    private function urlEncode(string $str): string
+    /**
+     * Encode a parameter for use in the shields.io URL.
+     * This handles special characters and follows shields.io's encoding rules.
+     *
+     * @param string $str The string to encode
+     * @return string The encoded string
+     */
+    private function encodeParameter(string $str): string
     {
+        // First, URL encode the entire string
+        $encoded = urlencode($str);
+
+        // Replace specific characters according to shields.io rules
         return str_replace(
-            [' ', '_', '-'],
-            ['%20', '__', '--'],
-            $str
+            ['%20', '%', '_', '-', '.'],
+            [' ', '%25', '__', '--', '.'],
+            $encoded
         );
     }
 
+    /**
+     * Build query parameters for the URL.
+     *
+     * @param array $params The parameters to build
+     * @return array The built query parameters
+     */
     private function buildQueryParams(array $params): array
     {
         $queryParams = [];
