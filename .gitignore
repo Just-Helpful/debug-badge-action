@@ -1,5 +1,4 @@
 /vendor/
-/composer.lock
 .phpunit.result.cache
 .idea/
 .vscode/
@@ -8,3 +7,4 @@
 /coverage/
 .env
 var/
+.php-cs-fixer.cache
