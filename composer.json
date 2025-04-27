@@ -11,7 +11,9 @@
         "pestphp/pest": "^3.8",
         "phpunit/php-code-coverage": "^11.0",
         "mockery/mockery": "^1.6",
-        "mikey179/vfsstream": "^1.6"
+        "mikey179/vfsstream": "^1.6",
+        "psr/log": "^3.0",
+        "monolog/monolog": "^3.9"
     },
     "autoload": {
         "psr-4": {
