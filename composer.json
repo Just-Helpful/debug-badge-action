@@ -57,7 +57,7 @@
             "@auto"
         ],
         "auto": [
-            "composer normalize"
+            "[ -d vendor/ergebnis/composer-normalize ] && composer normalize || true"
         ],
         "cs:check": "php-cs-fixer check --config=.php-cs-fixer.php",
         "cs:fix": "php-cs-fixer fix --config=.php-cs-fixer.php",
