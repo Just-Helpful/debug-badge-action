@@ -1,4 +1,4 @@
-name: Test Badge Generator
+name: Test and Generate Badges
 
 on:
   push:
@@ -18,46 +18,119 @@ jobs:
         with:
           php-version: '8.2'
           extensions: curl
-          coverage: none
-          tools: none
+          coverage: xdebug
+          tools: phpunit
 
       - name: Install dependencies
         run: composer install --no-progress --no-interaction
 
+      - name: Run tests with coverage
+        run: |
+          mkdir -p coverage
+          phpunit --coverage-text --coverage-clover=coverage/clover.xml
+
+      - name: Calculate coverage percentage
+        id: coverage
+        run: |
+          COVERAGE=$(php -r '
+            $xml = simplexml_load_file("coverage/clover.xml");
+            $metrics = $xml->xpath("//metrics");
+            $totalElements = 0;
+            $coveredElements = 0;
+            foreach ($metrics as $metric) {
+              $totalElements += (int)$metric["elements"];
+              $coveredElements += (int)$metric["coveredelements"];
+            }
+            echo number_format(($coveredElements / $totalElements) * 100, 1) . "%";
+          ')
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+
+      # Test the badge generation functionality
+      - name: Create test directory
+        run: mkdir -p .tmp-test-badges
+
       - name: Test basic badge generation
         run: |
-          php bin/badge "test" "passing" "test-badge.svg"
-          if [ ! -f "test-badge.svg" ]; then
+          php bin/badge "test" "passing" ".tmp-test-badges/basic.svg"
+          if [ ! -f ".tmp-test-badges/basic.svg" ]; then
             echo "::error::Basic badge generation failed"
             exit 1
           fi
 
       - name: Test badge with options
         run: |
-          php bin/badge "test" "passing" "test-badge-with-options.svg" \
+          php bin/badge "test" "passing" ".tmp-test-badges/with-options.svg" \
             --color green \
             --style flat-square \
             --logo github \
             --logo-color white
-          if [ ! -f "test-badge-with-options.svg" ]; then
+          if [ ! -f ".tmp-test-badges/with-options.svg" ]; then
             echo "::error::Badge generation with options failed"
             exit 1
           fi
 
       - name: Test invalid inputs
         run: |
-          if php bin/badge "test" "passing" "test-badge.svg" --style invalid-style 2>&1 | grep -q "Invalid style"; then
+          if php bin/badge "test" "passing" ".tmp-test-badges/invalid.svg" --style invalid-style 2>&1 | grep -q "Invalid style"; then
             echo "::info::Invalid style test passed"
           else
             echo "::error::Invalid style test failed"
             exit 1
           fi
 
-      - name: Upload test badges
+      # Store test artifacts for debugging if needed
+      - name: Upload test artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-badges
+          name: test-artifacts
           path: |
-            test-badge.svg
-            test-badge-with-options.svg
+            .tmp-test-badges/
+            coverage/
           retention-days: 1
+
+      # Generate repository badges only on main branch
+      - name: Generate Repository Badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p badges
+
+          # Generate build badge
+          php bin/badge "build" "passing" "badges/build.svg" \
+            --color green \
+            --style flat-square \
+            --logo github
+
+          # Generate version badge
+          php bin/badge "version" "${{ github.ref_name }}" "badges/version.svg" \
+            --color blue \
+            --style flat-square \
+            --logo github
+
+          # Generate coverage badge
+          php bin/badge "coverage" "${{ steps.coverage.outputs.coverage }}" "badges/coverage.svg" \
+            --color brightgreen \
+            --style flat-square \
+            --logo codecov
+
+          # Generate license badge
+          php bin/badge "license" "MIT" "badges/license.svg" \
+            --color green \
+            --style flat-square \
+            --logo github
+
+      # Commit and push badges if they changed
+      - name: Commit badges
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are any changes to the badges
+          if [[ -n "$(git status --porcelain badges/)" ]]; then
+            git add badges/
+            git commit -m "🔄 Update repository badges"
+            git push
+          else
+            echo "No changes to badges detected"
+          fi
