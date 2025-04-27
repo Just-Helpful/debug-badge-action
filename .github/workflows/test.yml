@@ -19,36 +19,43 @@ jobs:
           php-version: '8.2'
           extensions: curl
           coverage: xdebug
-          tools: phpunit
+          tools: composer:v2
 
       - name: Install dependencies
         run: composer install --no-progress --no-interaction
 
-      - name: Run tests with coverage
+      - name: Create test directories
         run: |
           mkdir -p coverage
-          phpunit --coverage-text --coverage-clover=coverage/clover.xml
+          mkdir -p .tmp-test-badges
+          echo "Created test directories"
+
+      - name: Run tests with coverage
+        run: |
+          ./vendor/bin/pest --coverage-text --coverage-clover=coverage/clover.xml
 
       - name: Calculate coverage percentage
         id: coverage
         run: |
-          COVERAGE=$(php -r '
-            $xml = simplexml_load_file("coverage/clover.xml");
-            $metrics = $xml->xpath("//metrics");
-            $totalElements = 0;
-            $coveredElements = 0;
-            foreach ($metrics as $metric) {
-              $totalElements += (int)$metric["elements"];
-              $coveredElements += (int)$metric["coveredelements"];
-            }
-            echo number_format(($coveredElements / $totalElements) * 100, 1) . "%";
-          ')
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          if [ -f "coverage/clover.xml" ]; then
+            COVERAGE=$(php -r '
+              $xml = simplexml_load_file("coverage/clover.xml");
+              $metrics = $xml->xpath("//metrics");
+              $totalElements = 0;
+              $coveredElements = 0;
+              foreach ($metrics as $metric) {
+                $totalElements += (int)$metric["elements"];
+                $coveredElements += (int)$metric["coveredelements"];
+              }
+              echo number_format(($coveredElements / $totalElements) * 100, 1) . "%";
+            ')
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0%" >> $GITHUB_OUTPUT
+            echo "::warning::No coverage report found"
+          fi
 
       # Test the badge generation functionality
-      - name: Create test directory
-        run: mkdir -p .tmp-test-badges
-
       - name: Test basic badge generation
         run: |
           php bin/badge "test" "passing" ".tmp-test-badges/basic.svg"
@@ -85,8 +92,8 @@ jobs:
         with:
           name: test-artifacts
           path: |
-            .tmp-test-badges/
-            coverage/
+            .tmp-test-badges/*.svg
+            coverage/clover.xml
           retention-days: 1
 
       # Generate repository badges only on main branch
