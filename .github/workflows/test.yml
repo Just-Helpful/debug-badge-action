@@ -27,7 +27,7 @@ jobs:
       - name: Create test directories
         run: |
           mkdir -p coverage
-          mkdir -p var/tmp/var/.tmp-test-badges
+          mkdir -p var/.tmp-test-badges
           echo "Created test directories"
 
       - name: Run tests with coverage
@@ -59,7 +59,7 @@ jobs:
       - name: Test basic badge generation
         run: |
           php bin/badge "test" "passing" "var/.tmp-test-badges/basic.svg"
-          if [ ! -f "var/tmp/var/.tmp-test-badges/basic.svg" ]; then
+          if [ ! -f "var/.tmp-test-badges/basic.svg" ]; then
             echo "::error::Basic badge generation failed"
             exit 1
           fi
@@ -71,7 +71,7 @@ jobs:
             --style flat-square \
             --logo github \
             --logo-color white
-          if [ ! -f "var/tmp/var/.tmp-test-badges/with-options.svg" ]; then
+          if [ ! -f "var/.tmp-test-badges/with-options.svg" ]; then
             echo "::error::Badge generation with options failed"
             exit 1
           fi
@@ -92,7 +92,7 @@ jobs:
         with:
           name: test-artifacts
           path: |
-            var/tmp/var/.tmp-test-badges/*.svg
+            var/.tmp-test-badges/*.svg
             coverage/clover.xml
           retention-days: 1
 
