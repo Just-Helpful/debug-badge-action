@@ -25,7 +25,6 @@ class BadgeGenerator implements BadgeGeneratorInterface
     private string $status;
     private string $path;
     private LoggerInterface $logger;
-    private string $outputDir = 'var/tmp';
 
     /**
      * Constructor for the BadgeGenerator class.
@@ -110,7 +109,7 @@ class BadgeGenerator implements BadgeGeneratorInterface
 
     private function saveBadgeToFile(string $content): string
     {
-        $outputPath = $this->getOutputPath();
+        $outputPath = $this->path;
         $this->ensureOutputDirectoryExists();
 
         // Create a temporary file with a unique name
@@ -140,8 +139,7 @@ class BadgeGenerator implements BadgeGeneratorInterface
 
     private function ensureOutputDirectoryExists(): void
     {
-        $outputPath = $this->getOutputPath();
-        $dir = dirname($outputPath);
+        $dir = dirname($this->path);
 
         if (!is_dir($dir)) {
             if (!@mkdir($dir, 0777, true)) {
@@ -155,17 +153,5 @@ class BadgeGenerator implements BadgeGeneratorInterface
         if (!is_writable($dir)) {
             throw new \Exception('Failed to save badge: Directory is not writable');
         }
-    }
-
-    private function getOutputPath(): string
-    {
-        if (strpos($this->path, '/') === 0) {
-            return $this->path; // Absolute path
-        }
-        // If the path already starts with var/tmp, don't add it again
-        if (strpos($this->path, $this->outputDir . '/') === 0) {
-            return $this->path;
-        }
-        return $this->outputDir . '/' . $this->path;
     }
 }

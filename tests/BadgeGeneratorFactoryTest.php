@@ -19,52 +19,52 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 beforeEach(function () {
-    // Clean up any existing test directories
-    if (is_dir('var/tmp')) {
-        array_map('unlink', glob("var/tmp/*.*"));
+    // Create a temporary directory for test badges
+    if (!is_dir('test-badges')) {
+        mkdir('test-badges', 0777, true);
     }
-    if (!is_dir('var/tmp')) {
-        mkdir('var/tmp', 0777, true);
-    }
-    chmod('var/tmp', 0777);
+    chmod('test-badges', 0777);
     clearstatcache();
 });
 
 afterEach(function () {
     // Clean up temporary files
-    if (is_dir('var/tmp')) {
-        array_map('unlink', glob("var/tmp/*.*"));
+    if (is_dir('test-badges')) {
+        array_map('unlink', glob("test-badges/*.*"));
+        rmdir('test-badges');
     }
     clearstatcache();
 });
 
 test('factory creates badge generator with correct dependencies', function () {
+    $outputPath = 'test-badges/test.svg';
     $generator = BadgeGeneratorFactory::create([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg'
+        'path' => $outputPath
     ]);
 
     expect($generator)->toBeInstanceOf(BadgeGenerator::class);
 
     // Test that the generator works
     $path = $generator->generate();
-    expect($path)->toBe('var/tmp/test.svg');
+    expect($path)->toBe($outputPath);
     expect(file_exists($path))->toBeTrue();
 });
 
 test('factory creates badge generator with custom logger', function () {
     $logger = new NullLogger();
+    $outputPath = 'test-badges/test-logger.svg';
     $generator = BadgeGeneratorFactory::create([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg'
+        'path' => $outputPath
     ], $logger);
 
     expect($generator)->toBeInstanceOf(BadgeGenerator::class);
 
     // Test that the generator works
     $path = $generator->generate();
-    expect($path)->toBe('var/tmp/test.svg');
+    expect($path)->toBe($outputPath);
     expect(file_exists($path))->toBeTrue();
 });

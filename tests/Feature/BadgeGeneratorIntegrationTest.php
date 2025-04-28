@@ -19,24 +19,26 @@ use Psr\Log\NullLogger;
 
 beforeEach(function () {
     // Create a temporary directory for test badges
-    if (!is_dir('var/tmp')) {
-        mkdir('var/tmp', 0777, true);
+    if (!is_dir('test-badges')) {
+        mkdir('test-badges', 0777, true);
     }
 });
 
 afterEach(function () {
     // Clean up temporary files
-    if (is_dir('var/tmp')) {
-        array_map('unlink', glob("var/tmp/*.*"));
+    if (is_dir('test-badges')) {
+        array_map('unlink', glob("test-badges/*.*"));
+        rmdir('test-badges');
     }
     Mockery::close();
 });
 
 test('it integrates correctly with mocked dependencies', function () {
+    $outputPath = 'test-badges/test.svg';
     $inputs = [
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg',
+        'path' => $outputPath,
         'color' => 'green',
         'style' => 'flat-square'
     ];
@@ -54,7 +56,7 @@ test('it integrates correctly with mocked dependencies', function () {
     $generator = new \BadgeGenerator\BadgeGenerator($urlBuilder, $mockHttpClient, $inputs);
     $path = $generator->generate();
 
-    expect($path)->toBe('var/tmp/' . $inputs['path']);
+    expect($path)->toBe($inputs['path']);
     expect(file_exists($path))->toBeTrue();
     expect(file_get_contents($path))->toBe('<svg>test badge</svg>');
 });
@@ -65,10 +67,11 @@ test('it handles all supported badge styles', function () {
     $urlBuilder = new ShieldsIoUrlBuilder();
 
     foreach ($styles as $style) {
+        $outputPath = "test-badges/badge-{$style}.svg";
         $inputs = [
             'label' => 'style',
             'status' => $style,
-            'path' => "badge-{$style}.svg",
+            'path' => $outputPath,
             'style' => $style
         ];
 
@@ -79,7 +82,7 @@ test('it handles all supported badge styles', function () {
         $generator = new \BadgeGenerator\BadgeGenerator($urlBuilder, $mockHttpClient, $inputs);
         $path = $generator->generate();
 
-        expect($path)->toBe('var/tmp/' . $inputs['path']);
+        expect($path)->toBe($inputs['path']);
         expect(file_exists($path))->toBeTrue();
         expect(file_get_contents($path))->toContain($style);
     }
@@ -96,15 +99,16 @@ test('it handles all supported color formats', function () {
     ];
 
     foreach ($colors as $color) {
+        $outputPath = "test-badges/test-{$color}.svg";
         $generator = BadgeGeneratorFactory::create([
             'label' => 'test',
             'status' => 'passing',
-            'path' => "test-{$color}.svg",
+            'path' => $outputPath,
             'color' => $color
         ]);
 
         $path = $generator->generate();
-        expect($path)->toBe("var/tmp/test-{$color}.svg");
+        expect($path)->toBe($outputPath);
         expect(file_exists($path))->toBeTrue();
     }
 });

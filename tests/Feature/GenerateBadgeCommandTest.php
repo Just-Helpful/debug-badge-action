@@ -37,17 +37,23 @@ test('it can generate a badge via CLI', function () {
     $command = new GenerateBadgeCommand();
     $application->add($command);
 
+    $outputPath = 'test-badges/test.svg';
     $commandTester = new CommandTester($command);
     $result = $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg',
+        'path' => $outputPath,
         '--color' => 'green'
     ]);
 
     expect($result)->toBe(Command::SUCCESS);
-    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
-    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: var/tmp/test.svg');
+    expect(file_exists($outputPath))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain("Badge generated successfully at: {$outputPath}");
+
+    // Cleanup
+    if (file_exists($outputPath)) {
+        unlink($outputPath);
+    }
 });
 
 test('it shows error when required arguments are missing', function () {
@@ -137,4 +143,31 @@ test('it handles unexpected errors gracefully', function () {
     // Cleanup
     chmod($testDir, 0777);
     rmdir($testDir);
+});
+
+test('it generates badge in the exact specified path', function () {
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $customPath = 'custom/path/test.svg';
+    $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => $customPath
+    ]);
+
+    expect($result)->toBe(Command::SUCCESS);
+    expect(file_exists($customPath))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain("Badge generated successfully at: {$customPath}");
+
+    // Cleanup
+    if (file_exists($customPath)) {
+        unlink($customPath);
+    }
+    if (is_dir(dirname($customPath))) {
+        rmdir(dirname($customPath));
+        rmdir(dirname(dirname($customPath)));
+    }
 });

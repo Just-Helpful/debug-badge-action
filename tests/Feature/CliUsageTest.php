@@ -77,10 +77,11 @@ test('it generates badge with all valid options', function () {
     $command = $application->find('badge:generate');
     $commandTester = new CommandTester($command);
 
+    $outputPath = 'test-badges/test.svg';
     $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg',
+        'path' => $outputPath,
         '--color' => 'green',
         '--label-color' => '000000',
         '--style' => 'flat-square',
@@ -92,8 +93,14 @@ test('it generates badge with all valid options', function () {
     ]);
 
     expect($commandTester->getStatusCode())->toBe(Command::SUCCESS);
-    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
-    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: var/tmp/test.svg');
+    expect(file_exists($outputPath))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain("Badge generated successfully at: {$outputPath}");
+
+    // Cleanup
+    if (file_exists($outputPath)) {
+        unlink($outputPath);
+        rmdir(dirname($outputPath));
+    }
 });
 
 test('it handles invalid color format', function () {
@@ -272,21 +279,27 @@ test('it fails when required arguments are missing', function () {
     expect($commandTester->getDisplay())->toContain('Not enough arguments (missing: "status, path")');
 });
 
-test('it generates badge in var/tmp directory', function () {
+test('it generates badge in test-badges directory', function () {
     $application = new Application();
     $command = new GenerateBadgeCommand();
     $application->add($command);
 
+    $outputPath = 'test-badges/test.svg';
     $commandTester = new CommandTester($command);
     $result = $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'test.svg'
+        'path' => $outputPath
     ]);
 
     expect($result)->toBe(Command::SUCCESS);
-    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
-    expect($commandTester->getDisplay())->toContain('Badge generated successfully at: var/tmp/test.svg');
+    expect(file_exists($outputPath))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain("Badge generated successfully at: {$outputPath}");
+
+    // Cleanup
+    if (file_exists($outputPath)) {
+        unlink($outputPath);
+    }
 });
 
 test('it validates input using ArrayInput', function () {
@@ -334,39 +347,50 @@ test('it handles special characters in label and status', function () {
     $command = new GenerateBadgeCommand();
     $application->add($command);
 
+    $outputPath = 'test-badges/special.svg';
     $commandTester = new CommandTester($command);
     $result = $commandTester->execute([
-        'label' => 'test/with/slashes',
-        'status' => 'passing with spaces',
-        'path' => 'test.svg'
+        'label' => 'test & special',
+        'status' => 'passing!',
+        'path' => $outputPath
     ]);
 
     expect($result)->toBe(Command::SUCCESS);
-    expect(file_exists('var/tmp/test.svg'))->toBeTrue();
+    expect(file_exists($outputPath))->toBeTrue();
+    expect($commandTester->getDisplay())->toContain("Badge generated successfully at: {$outputPath}");
+
+    // Cleanup
+    if (file_exists($outputPath)) {
+        unlink($outputPath);
+        rmdir(dirname($outputPath));
+    }
 });
 
 test('it validates directory permissions before generating badge', function () {
-    // Create a read-only directory
-    if (!is_dir('var/tmp/readonly')) {
-        mkdir('var/tmp/readonly', 0777, true);
-    }
-    chmod('var/tmp/readonly', 0444);
-
     $application = new Application();
     $command = new GenerateBadgeCommand();
     $application->add($command);
 
+    // Create a read-only directory
+    $testDir = 'test-badges/readonly';
+    if (!is_dir($testDir)) {
+        mkdir($testDir, 0777, true);
+    }
+    chmod($testDir, 0444);
+
+    $outputPath = $testDir . '/test.svg';
     $commandTester = new CommandTester($command);
     $result = $commandTester->execute([
         'label' => 'test',
         'status' => 'passing',
-        'path' => 'readonly/test.svg'
+        'path' => $outputPath
     ]);
 
     expect($result)->toBe(Command::FAILURE);
     expect($commandTester->getDisplay())->toContain('Failed to save badge');
 
     // Cleanup
-    chmod('var/tmp/readonly', 0777);
-    rmdir('var/tmp/readonly');
+    chmod($testDir, 0777);
+    rmdir($testDir);
+    rmdir(dirname($testDir));
 });
