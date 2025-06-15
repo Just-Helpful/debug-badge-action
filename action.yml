@@ -69,6 +69,10 @@ runs:
       with:
         fetch-depth: 0
 
+    - name: CD into composite action
+      run: |
+        cd ${{ github.action_path }}
+
     - name: Configure Git
       shell: bash
       run: |
