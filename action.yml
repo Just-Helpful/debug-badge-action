@@ -111,8 +111,6 @@ runs:
         # Escape special characters in inputs
         LABEL="${{ inputs.label }}"
         STATUS="${{ inputs.status }}"
-        LABEL=$(echo "$LABEL" | sed 's/[^a-zA-Z0-9-]/_/g')
-        STATUS=$(echo "$STATUS" | sed 's/%/%25/g' | sed 's/ /%20/g' | sed 's/[^a-zA-Z0-9%.-]/_/g')
 
         # Build base command
         CMD=(
