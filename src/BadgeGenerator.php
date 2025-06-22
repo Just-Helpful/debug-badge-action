@@ -15,6 +15,7 @@ use BadgeGenerator\Contracts\BadgeGeneratorInterface;
 use BadgeGenerator\Contracts\HttpClientInterface;
 use BadgeGenerator\Contracts\UrlBuilderInterface;
 use BadgeGenerator\Exceptions\ValidationException;
+use ErrorException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -93,6 +94,9 @@ class BadgeGenerator implements BadgeGeneratorInterface
         // Build URL and download badge
         $url = $this->urlBuilder->build($this->label, $this->status, $this->params);
         $this->logger->debug('Built badge URL', ['url' => $url]);
+        if (str_contains($url, "cover")) {
+            throw new ErrorException("\nurl = $url");
+        }
 
         try {
             $content = $this->httpClient->download($url);
