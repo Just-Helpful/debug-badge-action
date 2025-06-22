@@ -108,15 +108,11 @@ runs:
       id: generate-badge
       shell: bash
       run: |
-        # Escape special characters in inputs
-        LABEL="${{ inputs.label }}"
-        STATUS="${{ inputs.status }}"
-
         # Build base command
         CMD=(
           php bin/badge
-          "$LABEL"
-          "$STATUS"
+          "${{ inputs.label }}"
+          "${{ inputs.status }}"
           "${{ inputs.path }}"
         )
 
