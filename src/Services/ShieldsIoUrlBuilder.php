@@ -52,8 +52,8 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
     {
         // First, handle special characters that need custom encoding
         $str = str_replace(
-            ['%', '_', '-'],
-            ['%25', '__', '--'],
+            ['_', '-'],
+            ['__', '--'],
             $str
         );
 
