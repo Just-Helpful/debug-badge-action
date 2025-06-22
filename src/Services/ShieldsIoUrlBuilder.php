@@ -59,7 +59,7 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
 
         // Then URL encode the string, preserving already encoded sequences
         return preg_replace_callback(
-            '/[^A-Za-z0-9\-._~%]/',
+            '/[^A-Za-z0-9\-._~]/',
             function ($match) {
                 return rawurlencode($match[0]);
             },
