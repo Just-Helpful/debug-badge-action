@@ -29,7 +29,7 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
     {
         $encodedLabel = $this->encodeParameter($label);
         $encodedStatus = $this->encodeParameter($status);
-        $color = $params['color'] ?? 'blue';
+        $color = $this->encodeParameter($params['color'] ?? 'blue');
 
         $url = "{$this->baseUrl}/{$encodedLabel}-{$encodedStatus}-{$color}";
 
