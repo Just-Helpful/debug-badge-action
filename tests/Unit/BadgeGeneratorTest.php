@@ -17,6 +17,7 @@ use BadgeGenerator\Contracts\UrlBuilderInterface;
 use BadgeGenerator\Exceptions\ValidationException;
 use Mockery;
 use Psr\Log\NullLogger;
+use phpmock\phpunit\PHPMock;
 
 beforeEach(function () {
     // Clean up any existing test directories
@@ -135,37 +136,42 @@ test('it generates badge and saves to file', function () {
     expect(file_get_contents($path))->toBe('<svg>test</svg>');
 });
 
-test('it throws exception when directory creation fails', function () {
+test('it throws exception when directory cannot be created', function () {
+    set_error_handler(fn() => true); // Suppress warnings
     $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
     $httpClient = Mockery::mock(HttpClientInterface::class);
 
     $urlBuilder->shouldReceive('build')
         ->once()
         ->andReturn('https://example.com/badge.svg');
-
     $httpClient->shouldReceive('download')
         ->once()
         ->andReturn('<svg>test</svg>');
 
-    // Create a read-only directory
-    $testDir = 'var/tmp/readonly';
-    if (!is_dir($testDir)) {
-        mkdir($testDir, 0777, true);
+    // Create a read-only parent directory
+    $parentDir = 'var/tmp/readonly-parent';
+    $childDir = $parentDir . '/child';
+    if (!is_dir($parentDir)) {
+        mkdir($parentDir, 0777, true);
     }
-    chmod($testDir, 0444);
+    chmod($parentDir, 0555); // read and execute only, no write
 
     $generator = new BadgeGenerator($urlBuilder, $httpClient, [
         'label' => 'test',
         'status' => 'passing',
-        'path' => $testDir . '/test.svg'
+        'path' => $childDir . '/test.svg'
     ]);
 
     expect(fn() => $generator->generate())
-        ->toThrow(\Exception::class, 'Failed to save badge: Directory is not writable');
+        ->toThrow(\Exception::class, 'Failed to save badge: Could not create directory');
 
     // Cleanup
-    chmod($testDir, 0777);
-    rmdir($testDir);
+    chmod($parentDir, 0777);
+    if (is_dir($childDir)) {
+        rmdir($childDir);
+    }
+    rmdir($parentDir);
+    restore_error_handler();
 });
 
 test('it throws exception when file saving fails', function () {
@@ -333,4 +339,25 @@ test('it handles concurrent file access', function () {
 
     expect(file_get_contents($path1))->toBe('<svg>test1</svg>');
     expect(file_get_contents($path2))->toBe('<svg>test2</svg>');
+});
+
+test('it throws an exception if httpClient download fails', function () {
+    $urlBuilder = Mockery::mock(UrlBuilderInterface::class);
+    $httpClient = Mockery::mock(HttpClientInterface::class);
+
+    $urlBuilder->shouldReceive('build')
+        ->once()
+        ->andReturn('https://example.com/badge.svg');
+    $httpClient->shouldReceive('download')
+        ->once()
+        ->andThrow(new \Exception('Network error'));
+
+    $generator = new BadgeGenerator($urlBuilder, $httpClient, [
+        'label' => 'test',
+        'status' => 'passing',
+        'path' => 'var/tmp/test.svg'
+    ]);
+
+    expect(fn() => $generator->generate())
+        ->toThrow(\Exception::class, 'Network error');
 });

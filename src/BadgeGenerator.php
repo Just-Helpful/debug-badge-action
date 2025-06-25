@@ -115,7 +115,7 @@ class BadgeGenerator implements BadgeGeneratorInterface
         // Create a temporary file with a unique name
         $tempFile = $outputPath . '.tmp.' . uniqid('', true);
 
-        if (@file_put_contents($tempFile, $content) === false) {
+        if (file_put_contents($tempFile, $content) === false) {
             throw new \Exception('Failed to save badge: Could not write to temporary file');
         }
 
@@ -153,5 +153,13 @@ class BadgeGenerator implements BadgeGeneratorInterface
         if (!is_writable($dir)) {
             throw new \Exception('Failed to save badge: Directory is not writable');
         }
+    }
+}
+
+// Add a namespaced file_put_contents function for testability
+if (!function_exists(__NAMESPACE__ . '\\file_put_contents')) {
+    function file_put_contents($filename, $data, $flags = 0, $context = null)
+    {
+        return \file_put_contents($filename, $data, $flags, $context);
     }
 }

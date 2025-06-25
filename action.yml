@@ -86,6 +86,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
+        cd ${{ github.action_path }}
         composer install --no-dev --no-progress --no-interaction --optimize-autoloader
         if [ $? -ne 0 ]; then
           echo "::error::Failed to install dependencies"
@@ -108,17 +109,11 @@ runs:
       id: generate-badge
       shell: bash
       run: |
-        # Escape special characters in inputs
-        LABEL="${{ inputs.label }}"
-        STATUS="${{ inputs.status }}"
-        LABEL=$(echo "$LABEL" | sed 's/[^a-zA-Z0-9-]/_/g')
-        STATUS=$(echo "$STATUS" | sed 's/%/%25/g' | sed 's/ /%20/g' | sed 's/[^a-zA-Z0-9%.-]/_/g')
-
         # Build base command
         CMD=(
-          php bin/badge
-          "$LABEL"
-          "$STATUS"
+          php ${{ github.action_path }}/bin/badge
+          "${{ inputs.label }}"
+          "${{ inputs.status }}"
           "${{ inputs.path }}"
         )
 

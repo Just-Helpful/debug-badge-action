@@ -29,7 +29,7 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
     {
         $encodedLabel = $this->encodeParameter($label);
         $encodedStatus = $this->encodeParameter($status);
-        $color = $params['color'] ?? 'blue';
+        $color = $this->encodeParameter($params['color'] ?? 'blue');
 
         $url = "{$this->baseUrl}/{$encodedLabel}-{$encodedStatus}-{$color}";
 
@@ -52,14 +52,14 @@ class ShieldsIoUrlBuilder implements UrlBuilderInterface
     {
         // First, handle special characters that need custom encoding
         $str = str_replace(
-            ['%', '_', '-'],
-            ['%25', '__', '--'],
+            ['_', '-'],
+            ['__', '--'],
             $str
         );
 
         // Then URL encode the string, preserving already encoded sequences
         return preg_replace_callback(
-            '/[^A-Za-z0-9\-._~%]/',
+            '/[^A-Za-z0-9\-._~]/',
             function ($match) {
                 return rawurlencode($match[0]);
             },

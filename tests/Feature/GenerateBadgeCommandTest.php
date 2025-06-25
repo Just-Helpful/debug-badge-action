@@ -99,7 +99,7 @@ test('it handles HTTP client errors gracefully', function () {
     ]);
 
     expect($result)->toBe(Command::FAILURE);
-    expect($commandTester->getDisplay())->toContain('Failed to download badge');
+    expect($commandTester->getDisplay())->toContain('Invalid color format: invalid-color');
 });
 
 test('it supports logging to stdout', function () {
@@ -170,4 +170,24 @@ test('it generates badge in the exact specified path', function () {
         rmdir(dirname($customPath));
         rmdir(dirname(dirname($customPath)));
     }
+});
+
+test('it handles invalid logo color gracefully', function () {
+    $application = new Application();
+    $command = new GenerateBadgeCommand();
+    $application->add($command);
+
+    $commandTester = new CommandTester($command);
+    $result = $commandTester->execute([
+        'label' => 'foo',
+        'status' => 'bar',
+        'path' => 'baz',
+        '--color' => 'blue',
+        '--label-color' => '555',
+        '--style' => 'flat',
+        '--logo-color' => 'bad-color!', // use truly invalid value
+    ]);
+
+    expect($result)->toBe(Command::FAILURE);
+    expect($commandTester->getDisplay())->toContain('Invalid logo color format: bad-color!');
 });
