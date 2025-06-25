@@ -21,7 +21,7 @@ class CurlHttpClient implements HttpClientInterface
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Set timeout to 5 seconds for faster test feedback
 
         $response = $this->executeCurl($ch);
         $error = $this->getCurlError($ch);
@@ -34,9 +34,6 @@ class CurlHttpClient implements HttpClientInterface
         }
 
         if ($httpCode !== 200) {
-            if ($httpCode === 422) {
-                throw new HttpClientException("Failed to download badge: Invalid parameters provided");
-            }
             throw new HttpClientException("Failed to download badge: HTTP {$httpCode}");
         }
 
