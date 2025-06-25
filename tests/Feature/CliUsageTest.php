@@ -118,7 +118,7 @@ test('it handles invalid color format', function () {
     ], ['catch_exceptions' => false]);
 
     expect($commandTester->getStatusCode())->toBe(1);
-    expect($commandTester->getDisplay())->toContain('Failed to download badge');
+    expect($commandTester->getDisplay())->toContain('Invalid color format: invalid-color');
 });
 
 test('it handles invalid style', function () {
@@ -318,7 +318,7 @@ test('it validates input using ArrayInput', function () {
     $result = $command->run($input, $output);
 
     expect($result)->toBe(Command::FAILURE);
-    expect($output->fetch())->toContain('Failed to download badge');
+    expect($output->fetch())->toContain('Invalid color format: invalid-color');
 });
 
 test('it logs operations to stdout in development', function () {
