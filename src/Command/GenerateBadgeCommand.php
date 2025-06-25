@@ -185,6 +185,28 @@ class GenerateBadgeCommand extends Command
                 throw new ValidationException("Invalid link URL: {$link}");
             }
 
+            // Validate color options
+            foreach ([['color', 'color'], ['label-color', 'label color']] as [$option, $desc]) {
+                $colorValue = $input->getOption($option);
+                if ($colorValue !== null) {
+                    $validColorFormats = [
+                        '/^[a-zA-Z]+$/', // Named colors
+                        '/^[0-9A-Fa-f]{3}$/', // RGB short
+                        '/^[0-9A-Fa-f]{6}$/', // RGB full
+                    ];
+                    $isValidColor = false;
+                    foreach ($validColorFormats as $format) {
+                        if (preg_match($format, $colorValue)) {
+                            $isValidColor = true;
+                            break;
+                        }
+                    }
+                    if (!$isValidColor) {
+                        throw new ValidationException("Invalid {$desc} format: {$colorValue}");
+                    }
+                }
+            }
+
             // Validate logo color format
             $logoColor = $input->getOption('logo-color');
             if ($logoColor !== null) {
